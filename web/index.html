@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>生词本 · 默写工坊</title>
+    <meta name="description" content="浏览不背单词生词本，一键生成 A4 单词默写 PDF（英文+释义 / 仅英文 / 仅中文）。" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23E8703F'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' fill='%23fff'%3E词%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="assets/css/app.css" />
+  </head>
+  <body>
+    <header class="appbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">词</span>
+        <div class="brand-text">
+          <strong>英语单词助手</strong>
+          <span>Keep It Up</span>
+        </div>
+      </div>
+      <div class="appbar-actions">
+        <span class="status-pill" id="loginStatus" data-state="unknown">
+          <i class="dot" aria-hidden="true"></i><span id="loginStatusText">未检测</span>
+        </span>
+        <button class="btn ghost" type="button" id="btnJumpLogin" hidden>切换账号</button>
+        <button class="btn ghost" type="button" id="btnSettings">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.2-2-3.4-2.2 1a7.7 7.7 0 0 0-1.7-1L15.1 4h-4l-.4 2.4c-.6.2-1.2.5-1.7 1l-2.2-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.2 2 3.4 2.2-1c.5.4 1.1.7 1.7 1l.4 2.4h4l.4-2.4c.6-.2 1.2-.5 1.7-1l2.2 1 2-3.4-2-1.2Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          设置
+        </button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <!-- ============================ 登录 ============================ -->
+      <section class="view login-view" id="viewLogin">
+        <div class="hero">
+          <h1 class="hero-title">英语单词助手</h1>
+          <p class="hero-desc">
+            读取不背单词生词本，按 A4 双栏版式排版，支持<b>英文+释义</b>、<b>仅英文</b>、<b>仅中文</b>三种模式
+          </p>
+
+          <ol class="steps">
+            <li>
+              <span class="step-no">1</span>
+              <div><b>登录账号</b><span>扫码或手机验证码，凭证只保存在本地。</span></div>
+            </li>
+            <li>
+              <span class="step-no">2</span>
+              <div><b>读取生词本</b><span>获取生词本全部数据</span></div>
+            </li>
+            <li>
+              <span class="step-no">3</span>
+              <div><b>导出 PDF</b><span>浏览器本地排版生成，数据不上传第三方。</span></div>
+            </li>
+          </ol>
+
+          <div class="paper-preview" aria-hidden="true">
+            <div class="pp-half">
+              <div class="pp-head"><span class="pp-chip">Word</span><span>Meaning</span></div>
+              <div class="pp-row"><i>1</i><b>corresponding</b><span></span><u></u></div>
+              <div class="pp-row alt"><i>2</i><b>barely</b><span></span><u></u></div>
+              <div class="pp-row"><i>3</i><b>abandon</b><span></span><u></u></div>
+            </div>
+            <div class="pp-half">
+              <div class="pp-head"><span class="pp-chip">Word</span><span>Meaning</span></div>
+              <div class="pp-row"><i>1</i><b></b><span>adj. 符合的，相应的</span><u></u></div>
+              <div class="pp-row alt"><i>2</i><b></b><span>adv. 仅仅，勉强</span><u></u></div>
+              <div class="pp-row"><i>3</i><b></b><span>v. 放弃，抛弃</span><u></u></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="login-card">
+          <div class="tabs" role="tablist" aria-label="登录方式">
+            <button class="tab is-active" role="tab" aria-selected="true" aria-controls="panelQr" id="tabQr" type="button">二维码登录</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="panelPhone" id="tabPhone" type="button">手机号登录</button>
+          </div>
+
+          <!-- 二维码 -->
+          <div class="tab-panel" id="panelQr" role="tabpanel" aria-labelledby="tabQr">
+            <div class="qr-stage" id="qrStage">
+              <div class="qr-placeholder" id="qrPlaceholder">
+                <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round">
+                  <rect x="6" y="6" width="14" height="14" rx="2" />
+                  <rect x="10.5" y="10.5" width="5" height="5" rx="1" fill="currentColor" stroke="none" />
+                  <rect x="28" y="6" width="14" height="14" rx="2" />
+                  <rect x="32.5" y="10.5" width="5" height="5" rx="1" fill="currentColor" stroke="none" />
+                  <rect x="6" y="28" width="14" height="14" rx="2" />
+                  <rect x="10.5" y="32.5" width="5" height="5" rx="1" fill="currentColor" stroke="none" />
+                  <path d="M28 28h6v6h-6zM36 36h6v6h-6z" fill="currentColor" stroke="none" />
+                  <path d="M28 40h4M40 28h2v4" stroke-linecap="round" />
+                </svg>
+                <p>点击下方按钮获取登录二维码</p>
+              </div>
+              <img id="qrImage" alt="微信登录二维码" hidden />
+              <div class="qr-fallback" id="qrFallback" hidden>
+                <p>后端未开放静态目录，图片无法直接显示。可在服务器上打开该文件扫码：</p>
+                <code id="qrPath">—</code>
+                <button class="btn tiny" type="button" id="btnCopyQrPath">复制路径</button>
+              </div>
+            </div>
+            <button class="btn primary block" type="button" id="btnQrcode">
+              开始扫码登录
+            </button>
+            <ul class="event-log" id="qrLog" aria-live="polite"></ul>
+            <p class="micro">登录成功后自动跳转到生词本。若二维码过期，重新点击即可。</p>
+          </div>
+
+          <!-- 手机号 -->
+          <div class="tab-panel" id="panelPhone" role="tabpanel" aria-labelledby="tabPhone" hidden>
+            <form class="form" id="phoneForm" novalidate>
+              <label class="field">
+                <span>手机号</span>
+                <input id="phoneNumber" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="11 位手机号" maxlength="11" required />
+              </label>
+
+              <div class="field">
+                <span>图形验证码</span>
+                <div class="captcha-row">
+                  <input id="authCode" name="authCode" type="text" autocomplete="off" placeholder="输入图片中的字符" maxlength="8" required />
+                  <button class="captcha-box" type="button" id="btnAuthCode" aria-label="获取图形验证码">
+                    <img id="authCodeImage" alt="图形验证码" hidden />
+                    <span id="authCodeHint">获取</span>
+                  </button>
+                </div>
+                <p class="micro" id="authCodePathHint" hidden></p>
+              </div>
+
+              <div class="field">
+                <span>短信验证码</span>
+                <div class="captcha-row">
+                  <input id="smsCode" name="smsCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6 位验证码" maxlength="8" required />
+                  <button class="btn quiet" type="button" id="btnPhoneCode">获取验证码</button>
+                </div>
+              </div>
+
+              <button class="btn primary block" type="submit">登录</button>
+              <p class="micro">验证码由不背单词服务器下发，请留意短信。</p>
+            </form>
+          </div>
+
+          <button class="link-btn" type="button" id="btnRetryAuto">我最近已登录过，重新检测</button>
+        </div>
+      </section>
+
+      <!-- ============================ 生词本 ============================ -->
+      <section class="view words-view" id="viewWords" hidden>
+        <div class="words-toolbar">
+          <div class="toolbar-title">
+            <h2>生词本</h2>
+            <p id="wordsMeta">正在读取…</p>
+          </div>
+          <div class="toolbar-tools">
+            <div class="search">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <input id="searchInput" type="search" placeholder="搜索本页单词或释义" aria-label="搜索本页单词或释义" />
+            </div>
+            <button class="btn ghost" type="button" id="btnRefresh">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              刷新
+            </button>
+          </div>
+        </div>
+
+        <div class="words-layout">
+          <div class="words-main">
+            <div class="word-grid" id="wordGrid" aria-live="polite"></div>
+
+            <nav class="pager" id="pager" aria-label="分页">
+              <button class="btn quiet" type="button" id="btnPrev">上一页</button>
+              <div class="pager-info">
+                <label class="sr-only" for="pageInput">跳转到页</label>
+                <input id="pageInput" type="number" min="1" inputmode="numeric" />
+                <span>/ <b id="pageTotal">—</b> 页</span>
+              </div>
+              <button class="btn quiet" type="button" id="btnNext">下一页</button>
+            </nav>
+          </div>
+
+          <aside class="export-panel" aria-labelledby="exportTitle">
+            <div class="panel-head">
+              <h3 id="exportTitle">导出默写 PDF</h3>
+            </div>
+
+            <fieldset class="mode-group">
+              <legend class="sr-only">导出模式</legend>
+              <label class="mode-card">
+                <input type="radio" name="mode" value="both" checked />
+                <span class="mode-body">
+                  <span class="mode-top"><b>英文+释义</b><em>both</em></span>
+                  <span class="mode-desc">左栏印单词、右栏印释义，每页 20 词</span>
+                </span>
+              </label>
+              <label class="mode-card">
+                <input type="radio" name="mode" value="en" />
+                <span class="mode-body">
+                  <span class="mode-top"><b>仅英文</b><em>en</em></span>
+                  <span class="mode-desc">只印英文，释义留空，每页 40 词</span>
+                </span>
+              </label>
+              <label class="mode-card">
+                <input type="radio" name="mode" value="zh" />
+                <span class="mode-body">
+                  <span class="mode-top"><b>仅中文</b><em>zh</em></span>
+                  <span class="mode-desc">只印释义，单词留空，每页 40 词</span>
+                </span>
+              </label>
+            </fieldset>
+
+            <div class="delay-block">
+              <div class="delay-head">
+                <span>获取每页数据间隔时间</span>
+                <span class="hint" id="delayHint">300 – 900 ms</span>
+              </div>
+              <div class="delay-inputs">
+                <label>
+                  <span>最小</span>
+                  <input id="delayMin" type="number" min="0" step="50" value="300" inputmode="numeric" /> ms
+                </label>
+                <span class="dash" aria-hidden="true">–</span>
+                <label>
+                  <span>最大</span>
+                  <input id="delayMax" type="number" min="0" step="50" value="900" inputmode="numeric" /> ms
+                </label>
+              </div>
+              <p class="micro">每次请求之间的间隔时间。为了避免触发服务端限流，请必须设置。</p>
+            </div>
+
+            <button class="btn primary block" type="button" id="btnExport">
+              <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 17v2h14v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span id="btnExportLabel">抓取全部并导出</span>
+            </button>
+            <button class="btn danger block" type="button" id="btnCancel" hidden>取消抓取</button>
+
+            <div class="progress" id="progress" hidden>
+              <div class="progress-bar"><i id="progressFill"></i></div>
+              <div class="progress-meta">
+                <span id="progressText">准备中…</span>
+                <span id="progressCount">0 / 0</span>
+              </div>
+            </div>
+
+            <div class="fetch-stats" id="fetchStats" hidden>
+              <div><span>已抓取</span><b id="statWords">0</b><small>词</small></div>
+              <div><span>页数</span><b id="statPages">0</b><small>页</small></div>
+              <div><span>耗时</span><b id="statTime">0</b><small>s</small></div>
+            </div>
+
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+    <dialog class="dialog" id="settingsDialog">
+      <form method="dialog" class="dialog-body">
+        <h3>连接设置</h3>
+        <p class="micro">前端只通过下列地址访问后端接口，配置保存在本机浏览器。</p>
+
+        <label class="field">
+          <span>接口地址</span>
+          <input id="apiBase" type="url" placeholder="留空 = 与页面同源（集成部署时无需填写）" />
+          <p class="micro">
+            集成到后端后页面与接口同源，这里留空即可。仅当前端单独部署在别的域名时，才需要填完整地址，例如
+            <code>http://127.0.0.1:20056</code>。
+          </p>
+        </label>
+
+        <label class="field">
+          <span>静态资源地址（可选）</span>
+          <input id="assetBase" type="url" placeholder="留空 = 与接口地址相同" />
+          <p class="micro">
+            二维码 / 图形验证码由后端写入 <code>output/</code> 目录。集成包已把该目录挂载到
+            <code>/output</code>，图片可直接显示；若改用 nginx 托管，把对应地址填在这里。
+          </p>
+        </label>
+
+        <div class="dialog-actions">
+          <button class="btn quiet" type="button" id="btnResetSettings">恢复默认</button>
+          <span class="spacer"></span>
+          <button class="btn ghost" value="cancel" type="submit">取消</button>
+          <button class="btn primary" value="save" type="button" id="btnSaveSettings">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="assets/js/app.js"></script>
+  </body>
+</html>
