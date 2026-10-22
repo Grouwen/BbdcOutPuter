@@ -227,8 +227,15 @@ export async function buildWordlistPdf({ words, mode = 'both', typefaces, meta =
   });
 
   const cnRegular = doc.addFont(new EmbeddedFont('NotoSansSC-Regular', regular, collector));
-  // 加粗中文字体只用于两处表头，子集到这几个字母即可
+  // 加粗中文字体用于表头，以及 'en' 半栏里非 ASCII 的单词（'café'、中文词条之类）。
+  // 只子集到这些字符，比整份 Noto 小得多。
   const headerChars = new Set(Array.from('WordMeaning').map((ch) => ch.codePointAt(0)));
+  if (mode !== 'zh') {
+    for (const row of words) {
+      if (isAscii(row.word)) continue;
+      for (const ch of row.word) headerChars.add(ch.codePointAt(0));
+    }
+  }
   const cnBold = bold
     ? doc.addFont(new EmbeddedFont('NotoSansSC-Bold', bold, headerChars))
     : HelveticaBold;

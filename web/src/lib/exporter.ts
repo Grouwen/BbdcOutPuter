@@ -8,6 +8,8 @@ import regularUrl from '@/assets/fonts/NotoSansSC-Regular.ttf?url'
 import boldUrl from '@/assets/fonts/NotoSansSC-Bold.subset.ttf?url'
 import { TrueTypeFont } from '@/lib/pdf/ttf.js'
 import { buildWordlistPdf, MODES } from '@/lib/pdf/wordlist.js'
+import { toSingleLine } from '@/lib/text'
+import { shuffleArray } from '@/lib/shuffle'
 import { formatBytes, timestamp } from '@/lib/utils'
 import type { ExportMode, ExportProgressPayload, SimpleWord } from '@/types'
 
@@ -94,11 +96,15 @@ export interface ExportResult {
   words: number
   elapsedMs: number
   sizeText: string
+  /** 本次是否打乱了顺序 */
+  shuffled: boolean
 }
 
 export interface ExportOptions {
   words: SimpleWord[]
   mode: ExportMode
+  /** 乱序导出：生成前把单词随机打乱（单词与释义始终配对） */
+  shuffle?: boolean
   onProgress?: (payload: ExportProgressPayload) => void
 }
 
@@ -106,10 +112,14 @@ export interface ExportOptions {
 export async function exportWordlistPdf({
   words,
   mode,
+  shuffle = false,
   onProgress,
 }: ExportOptions): Promise<ExportResult> {
   if (!words || !words.length) throw new Error('没有可导出的单词')
   const started = Date.now()
+
+  // 乱序只改行的先后，不动 word / meaning 的配对关系
+  const ordered = shuffle ? shuffleArray(words) : words
 
   onProgress?.({ phase: 'font', ratio: 0, text: '加载中文字体（首次约 10MB，之后走缓存）' })
   const regular = await loadTypeface(regularUrl, (ratio) => {
@@ -123,32 +133,41 @@ export async function exportWordlistPdf({
     bold = undefined // 缺粗体时退化为 Helvetica-Bold 表头
   }
 
-  onProgress?.({ phase: 'render', ratio: 0, text: '排版中…' })
+  onProgress?.({
+    phase: 'render',
+    ratio: 0,
+    text: shuffle ? '打乱顺序并排版…' : '排版中…',
+  })
   const bytes: Uint8Array = await buildWordlistPdf({
-    words: words.map(({ word, meaning }) => ({ word, meaning: meaning || '—' })),
+    // 再兜一层转义：进入 PDF 的文本必须是单行纯文本
+    words: ordered.map(({ word, meaning }) => ({
+      word: toSingleLine(word, '—'),
+      meaning: toSingleLine(meaning, '—'),
+    })),
     mode,
     typefaces: { regular, bold },
     meta: {
-      title: `单词默写 · ${MODES[mode]?.label || mode}`,
+      title: `单词默写 · ${MODES[mode]?.label || mode}${shuffle ? ' · 乱序' : ''}`,
       subject: '由生词本默写工坊生成',
     },
   })
 
   const label = MODES[mode]?.label || mode
-  const filename = `单词默写_${label}_${timestamp()}.pdf`
+  const filename = `单词默写_${label}${shuffle ? '_乱序' : ''}_${timestamp()}.pdf`
   const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' })
   saveBlob(blob, filename)
 
   const perPage = MODES[mode]?.perPage || 20
-  const pages = Math.max(1, Math.ceil(words.length / perPage))
+  const pages = Math.max(1, Math.ceil(ordered.length / perPage))
   onProgress?.({ phase: 'done', ratio: 1, text: '已生成' })
 
   return {
     filename,
     bytes: bytes.length,
     pages,
-    words: words.length,
+    words: ordered.length,
     elapsedMs: Date.now() - started,
     sizeText: formatBytes(bytes.length),
+    shuffled: shuffle,
   }
 }

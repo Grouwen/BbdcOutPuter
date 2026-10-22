@@ -9,6 +9,7 @@ import ExportPanel from '@/components/ExportPanel.vue'
 import PagerBar from '@/components/PagerBar.vue'
 import WordCard from '@/components/WordCard.vue'
 import { prefetchTypefaces } from '@/lib/exporter'
+import { searchTextOf } from '@/lib/word-utils'
 import { expire } from '@/stores/session'
 import { toast } from '@/stores/toast'
 import type { PageInfo, Word } from '@/types'
@@ -45,14 +46,8 @@ const visible = computed(() =>
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => {
       if (!filter.value) return true
-      const haystack = [
-        item?.word,
-        ...(item?.ultimate?.translation || []),
-        ...(item?.ultimate?.definition || []),
-      ]
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(filter.value)
+      // 搜索文本同样走后端的转义解析（translation 可能是字符串或数组）
+      return searchTextOf(item).includes(filter.value)
     }),
 )
 

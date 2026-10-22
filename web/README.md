@@ -1,8 +1,14 @@
 # 生词本 · 默写工坊（Vue 3 + Vite + TypeScript）
 
 把原来的原生 ES Module 单页应用重构为 Vue 3 + Vite + TypeScript，**功能、文案、样式、接口调用全部保持原样**：
-页面结构、CSS（`app.css` 一行未改）、三种 PDF 版式、限流随机延迟、二维码 SSE、断点续抓、
-设置持久化都逐项对齐；差异只有工程形态（组件化 + 路由 + 类型）。
+页面结构、CSS、三种 PDF 版式、限流随机延迟、二维码 SSE、断点续抓、设置持久化都逐项对齐；
+差异只有工程形态（组件化 + 路由 + 类型）。
+
+在此基础上又加了两件事（见第 6 章）：
+
+- **乱序导出**：导出面板里的开关，打开后把单词随机打乱再生成 PDF；
+- **后端数据转义**：所有后端文本先过 `src/lib/text.ts` 统一解析、清洗、转义，
+  再交给界面和 PDF，避免 HTML 片段、实体、控制字符造成乱码或错版。
 
 ---
 
@@ -13,6 +19,7 @@ npm install
 npm run dev        # http://127.0.0.1:5173，已内置 /bbdc 与 /output 的反向代理
 npm run build      # 类型检查 + 产出 dist/
 npm run preview    # 本地预览构建产物
+npm run verify     # 自检：转义规则、洗牌均匀性、PDF 里的实际绘制顺序
 ```
 
 开发期后端地址默认 `http://127.0.0.1:20056`，需要改就：
@@ -44,7 +51,9 @@ src/
 ├── lib/
 │   ├── fetcher.ts          WordFetcher（纯逻辑类 + 全局单例）
 │   ├── exporter.ts         字体加载 → 排版 → 下载
-│   ├── word-utils.ts       Word 对象 → 界面/PDF 形状
+│   ├── word-utils.ts       Word 对象 → 界面/PDF 形状（字段语义的唯一解释处）
+│   ├── text.ts             后端文本的解析与转义（剥标签/解实体/压空白/URL 白名单）
+│   ├── shuffle.ts          乱序导出用的 Fisher–Yates 洗牌
 │   ├── utils.ts            sleep/randomInt/formatDate/formatBytes
 │   └── pdf/                pdfdoc.js、ttf.js、wordlist.js（原样保留，未改动）
 ├── components/
@@ -58,8 +67,9 @@ src/
 ├── views/
 │   ├── LoginView.vue       登录页
 │   └── WordsView.vue       生词本页
-├── styles/app.css          原样式表，未改动
+├── styles/app.css          原样式表 + 本轮新增的开关/变形样式（追加在文件末尾）
 └── assets/fonts/           两个 TTF（构建时带 hash 输出，走长期缓存）
+scripts/verify.ts           本地自检（转义规则 + 洗牌分布 + PDF 顺序），npm run verify
 ```
 
 原文件 → 新位置的对应关系：
@@ -219,3 +229,79 @@ app.add_middleware(
    如果有自动化脚本依赖这些选择器，告诉我，我可以补回来。
 4. `stores/session.ts` 的 `check()` 改成**单飞**（single-flight）：并发触发（例如保存设置后
    立刻点「切换账号」）只会真正发一次 `autoLogin`。单次触发的行为与原来完全一致。
+
+---
+
+## 6. 本轮新增功能
+
+### 6.1 乱序导出
+
+- **位置**：导出面板「导出模式」下方新增 `乱序导出` 开关，默认关闭，状态写进 `localStorage`
+  的 `bbdc.wordlist.settings.v1`（`shuffle: true/false`），刷新后保持。
+- **行为**：抓取（或复用已抓页面）→ **洗牌** → 排版 → 下载。单词和它的释义始终在同一个对象里，
+  洗牌只改行的先后，不会拆散配对；每页的行号仍从 1 开始。
+- **文件名**：`单词默写_英文+释义_乱序_20261021.pdf`，PDF 元数据标题也会带上「· 乱序」。
+- **实现**：`src/lib/shuffle.ts` 的 Fisher–Yates，返回**新数组**，不动 `wordFetcher` 的缓存，
+  因此「已抓全」时连续导出两次，两次的顺序各自独立随机。
+  不用 `sort(() => Math.random() - 0.5)`，那种写法在 V8 里分布不均。
+- **均匀性**：`npm run verify` 里跑 6000 次首位分布抽样，最大偏差 < 35%（理论值 1/46 ≈ 2.2%）。
+
+### 6.2 后端数据转义
+
+所有后端文本都先过 `src/lib/text.ts`，再交给 `src/lib/word-utils.ts` 组装成界面 / PDF 的形状。
+任何组件都不再直接读 `word.ultimate.xxx` 的原始值。
+
+处理顺序：**解一层实体 → 剥标签 → 再解一层实体 → 压缩空白与控制字符**。两个边界：
+
+| 输入 | 输出 | 说明 |
+| --- | --- | --- |
+| `&lt;b&gt;bold&lt;/b&gt;` | `bold` | 解出的真实标签被剥掉 |
+| `&amp;lt;tag&amp;gt;` | `<tag>` | 双层转义，解两层后是字面量；DOM 由 Vue 插值再转义，PDF 只是文本 |
+| `<b>` 结尾的半截标签 | 删除 | 后端截断字符串时会留下这种残渣 |
+| `a\u0000b\u200Bc` | `abc` | 控制字符、零宽字符、BOM 一律清掉 |
+| `a\u3000\u3000b` | `a b` | 全角空格、不换行空格归一为普通空格 |
+
+字段映射（对应后端 `app/domain/word.py`）：
+
+| 字段 | 后端形态 | 处理 | 界面 / PDF 结果 |
+| --- | --- | --- | --- |
+| `word` | 可能带 `<b>`、首尾空白 | 剥标签、单行化、限 64 字符 | `abandon` |
+| `phonetic` / `uspron` / `ukpron` | 可能自带 `[]` 或 `//` | 剥掉外层再统一包 `/…/` | `/əˈbændən/` |
+| `translation` / `definition` | 数组**或**换行字符串 | 统一成行数组，实体解码，`translation` 优先 | 每行一条释义 |
+| `pos` | `vt/n` | 按 `/` 拆分，规范成 `vt.` `n.`；与释义行按序对齐，只有一个词性时共用 | 释义前的橙色小标 |
+| `collins` | `4` / `"4"` | 取整、上限 5 | `柯林斯 ★★★★` |
+| `oxford` | `1` / `"1"` / `true` | 真值判定（`"0"`、`false` 视为否） | `牛津核心` |
+| `tag` | `zk gk cet4 ky`（空格分隔） | 空格拆分 + 中文映射 | `中考` `高考` `四级` `考研` |
+| `exchange` | `p:abandoned/d:abandoned/i:abandoning` | 按 `/` 拆分、按 `:` 取键值、键映射中文 | `过去式 abandoned · 过去分词 …` |
+| `bnc` / `frq` | 词频序号 | 转数字，非法值归 0 | 预留（界面暂未展示） |
+| `detail` | JSON | 不参与展示，`toText` 返回空串 | — |
+| `audio` | URL | **协议白名单**：只放行 `http(s)`、`//`、`/`、`data:audio` | `javascript:` 等一律丢弃 |
+
+补充说明：
+
+- **DOM 侧**一律用 Vue 插值（等价于 `escapeHtml`），`escapeHtml()` 留给以后手写 HTML 的场景；
+  `audioOf()` 走 `safeUrl()`，避免把 `javascript:` 塞进 `<audio src>`。
+- **PDF 侧**的 `(` `)` `\` 与八进制转义由 `pdfdoc.js` 的 `escapeLiteral` 负责，导入前再用
+  `toSingleLine()` 把多行压成一行 —— 释义里带换行会把整行排版顶歪。
+- **顺手修的一个坑**：`en` 半栏遇到非 ASCII 单词（`café`、中文词条）会用加粗中文字体绘制，
+  而该字体的子集原来只包含 `Word`/`Meaning` 六个字母，画出来是空白；现在子集会带上这些字形。
+- 搜索框的匹配文本也换成 `searchTextOf()`，`translation` 是字符串时不再被按字符展开。
+
+### 6.3 验证
+
+```bash
+npm run build     # vue-tsc 类型检查 + 构建通过
+npm run verify    # 37 项断言全部通过（转义 / 字段映射 / 洗牌 / PDF 实际绘制顺序）
+```
+
+浏览器联调（假后端 46 词，字段刻意做脏：`<b>`、`&amp;`、`&lt;b&gt;`、字符串型 `translation`）：
+
+| 检查点 | 结果 |
+| --- | --- |
+| 词卡标题 `<b>abandon</b>` | 显示 `abandon` |
+| 释义 `放任，狂热&amp;放纵` | 显示 `放任，狂热&放纵` |
+| 释义 `灵活的 &lt;b&gt;易弯曲的&lt;/b&gt;` | 显示 `灵活的 易弯曲的` |
+| PDF 第 11 行 | `adj. 灵活的 易弯曲的`（无标签、无实体） |
+| 开关关闭导出 | 顺序 `abandon, ability, abstract…` |
+| 开关打开导出 | `previous, contrast, demand, estimate…`，46 词全在，页数不变 |
+| 开关状态 | `localStorage` 里 `"shuffle":true`，刷新后仍为开 |

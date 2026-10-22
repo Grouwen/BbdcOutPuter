@@ -3,30 +3,46 @@
  * 这里只描述前端真正读取到的字段，其余字段通过索引签名兜住。
  */
 
+/**
+ * 后端文本字段的真实形状：既可能是数组，也可能是换行 / 分隔符拼成的字符串，
+ * 还可能带 HTML 片段或实体。所有消费点都必须走 lib/text 的解析与转义层。
+ */
+export type TextLike = string | string[] | number | null | undefined
+
 export interface Ultimate {
-  /** 中文释义，优先使用 */
-  translation?: string[]
-  /** 英文释义，translation 为空时退化使用 */
-  definition?: string[]
-  /** 词典音标 */
-  phonetic?: string
-  /** 发音外链 */
-  audio?: string
-  /** 牛津核心词 */
-  oxford?: boolean | number
+  /** 中文释义，每行一个 */
+  translation?: TextLike
+  /** 英文释义，每行一个；translation 为空时退化使用 */
+  definition?: TextLike
+  /** 音标（以英音为主） */
+  phonetic?: TextLike
+  /** 词性，用 "/" 分割 */
+  pos?: TextLike
   /** 柯林斯星级 0-5 */
-  collins?: number
-  /** 考试标签 */
-  tag?: string[]
+  collins?: TextLike
+  /** 是否牛津三千核心词汇 */
+  oxford?: TextLike | boolean
+  /** 考试标签，空格分割：zk/gk/cet4/cet6/ky… */
+  tag?: TextLike
+  /** 英国国家语料库词频顺序 */
+  bnc?: TextLike
+  /** 当代语料库词频顺序 */
+  frq?: TextLike
+  /** 时态、复数等变形，用 "/" 分割项目（p:过去式/d:过去分词/…） */
+  exchange?: TextLike
+  /** JSON 扩展信息（例句等），界面暂未使用 */
+  detail?: unknown
+  /** 读音音频地址 */
+  audio?: TextLike
   [key: string]: unknown
 }
 
 export interface Word {
   word: string
   /** 美音音标 */
-  uspron?: string
+  uspron?: TextLike
   /** 英音音标 */
-  ukpron?: string
+  ukpron?: TextLike
   /** 加入生词本时间，形如 2024-05-01 ... */
   updatetime?: string
   ultimate?: Ultimate
@@ -77,6 +93,8 @@ export interface Settings {
   mode: ExportMode
   delayMin: number
   delayMax: number
+  /** 乱序导出：生成 PDF 前把单词随机打乱 */
+  shuffle: boolean
 }
 
 /** 抓取进度回调载荷 */

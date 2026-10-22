@@ -16,12 +16,17 @@ export const DEFAULT_SETTINGS: Settings = {
   mode: 'both',
   delayMin: 300,
   delayMax: 900,
+  // 乱序导出默认关闭：与旧行为保持一致，用户主动打开才打乱
+  shuffle: false,
 }
 
 function read(): Settings {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}
-    return { ...DEFAULT_SETTINGS, ...stored }
+    const merged: Settings = { ...DEFAULT_SETTINGS, ...stored }
+    // 老版本的配置里没有 shuffle；也防住被手改成 "false" 字符串的情况
+    merged.shuffle = merged.shuffle === true || String(merged.shuffle) === 'true'
+    return merged
   } catch {
     return { ...DEFAULT_SETTINGS }
   }

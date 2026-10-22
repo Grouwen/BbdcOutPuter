@@ -11,7 +11,7 @@
  */
 import { api } from '@/api'
 import { randomInt, sleep } from '@/lib/utils'
-import { meaningOf } from '@/lib/word-utils'
+import { meaningOf, wordTextOf } from '@/lib/word-utils'
 import type { FetchProgressPayload, PageInfo, SimpleWord, Word, WordPage } from '@/types'
 
 export class FetchCancelled extends Error {
@@ -193,11 +193,13 @@ export class WordFetcher {
     const keys = [...this.pages.keys()].sort((a, b) => a - b)
     for (const page of keys) {
       for (const item of this.pages.get(page) || []) {
-        const key = String(item?.word || '').trim()
-        if (!key || seen.has(key.toLowerCase())) continue
-        seen.add(key.toLowerCase())
+        // word 可能带 HTML 片段、实体或首尾空白，统一走转义层取纯文本
+        const text = wordTextOf(item)
+        const key = text.toLowerCase()
+        if (!text || seen.has(key)) continue
+        seen.add(key)
         words.push({
-          word: key,
+          word: text,
           meaning: meaningOf(item),
           raw: item,
         })

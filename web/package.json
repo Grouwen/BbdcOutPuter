@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "build:only": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify": "esbuild scripts/verify.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=node_modules/.cache/verify.mjs --log-level=warning && node node_modules/.cache/verify.mjs"
   },
   "dependencies": {
     "vue": "^3.5.13",

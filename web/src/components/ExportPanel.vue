@@ -20,6 +20,7 @@ const MODE_CARDS: Array<{ value: ExportMode; label: string; desc: string }> = [
 ]
 
 const mode = ref<ExportMode>(settings.mode)
+const shuffle = ref(settings.shuffle)
 const delayMin = ref(settings.delayMin)
 const delayMax = ref(settings.delayMax)
 const delayHint = computed(() => `${delayMin.value} – ${delayMax.value} ms`)
@@ -42,6 +43,11 @@ const exportLabel = ref('抓取全部并导出')
 
 function onModeChange(): void {
   saveSettings({ mode: mode.value })
+}
+
+/** 乱序开关：立即落盘，下次打开面板还是上次的选择 */
+function onShuffleChange(): void {
+  saveSettings({ shuffle: shuffle.value })
 }
 
 /** 读取并规整间隔时间：非法值归零、min > max 时交换 */
@@ -97,6 +103,7 @@ function renderFetchProgress(payload: FetchProgressPayload): void {
 async function runExport(): Promise<void> {
   if (busy.value) return
   const chosenMode = mode.value
+  const shuffleOrder = shuffle.value
   const { min, max } = readDelay()
 
   busy.value = true
@@ -131,10 +138,11 @@ async function runExport(): Promise<void> {
       seconds: (Date.now() - now) / 1000,
     })
 
-    setProgress({ ratio: 0.65, text: '准备排版…', count: '' })
+    setProgress({ ratio: 0.65, text: shuffleOrder ? '准备打乱顺序…' : '准备排版…', count: '' })
     const exported = await exportWordlistPdf({
       words: result.words,
       mode: chosenMode,
+      shuffle: shuffleOrder,
       onProgress: (progress) => {
         if (progress.phase === 'font') {
           setProgress({
@@ -143,7 +151,11 @@ async function runExport(): Promise<void> {
             count: '',
           })
         } else if (progress.phase === 'render') {
-          setProgress({ ratio: 0.94, text: '按 A4 版式排版…', count: '' })
+          setProgress({
+            ratio: 0.94,
+            text: shuffleOrder ? '打乱顺序，按 A4 版式排版…' : '按 A4 版式排版…',
+            count: '',
+          })
         } else if (progress.phase === 'done') {
           setProgress({ ratio: 1, text: '已生成，正在下载', count: '' })
         }
@@ -156,7 +168,9 @@ async function runExport(): Promise<void> {
       seconds: (Date.now() - now) / 1000,
     })
     toast(
-      `已导出《${exported.filename}》· ${exported.pages} 页 · ${exported.sizeText}`,
+      `已导出《${exported.filename}》· ${exported.pages} 页 · ${exported.sizeText}${
+        exported.shuffled ? ' · 已乱序' : ''
+      }`,
       'ok',
       6000,
     )
@@ -202,6 +216,20 @@ function cancel(): void {
         </span>
       </label>
     </fieldset>
+
+    <div class="shuffle-block">
+      <label class="switch">
+        <input v-model="shuffle" type="checkbox" @change="onShuffleChange" />
+        <span class="switch-track" aria-hidden="true"><i></i></span>
+        <span class="switch-text">
+          <b>乱序导出</b>
+          <em>{{ shuffle ? '已开启' : '按原顺序' }}</em>
+        </span>
+      </label>
+      <p class="micro">
+        生成前把单词随机打乱：单词和释义仍然成对，只是先后顺序不可预测，避免靠位置记忆。
+      </p>
+    </div>
 
     <div class="delay-block">
       <div class="delay-head">

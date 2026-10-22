@@ -218,7 +218,6 @@ class BbdcService:
         return Result.ok({"is_login":False})
 
 
-
     # ------------------------- 业务相关 -------------------------
     async def get_newword_by_page(self,page:int)->Result:
         rep = await self.httpx_oper.get_json(f"https://www.bbdc.cn/api/user-new-word?page={page}")
