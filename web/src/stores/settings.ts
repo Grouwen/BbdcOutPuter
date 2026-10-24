@@ -1,15 +1,17 @@
 /**
- * 本机配置：接口地址、静态资源地址、导出偏好。
+ * 本机配置：接口地址、静态资源地址、导出偏好、阅读字号。
  * 全部保存在 localStorage，刷新后仍然生效。
  */
 import { reactive } from 'vue'
-import type { Settings } from '@/types'
+import type { ReadingScale, Settings } from '@/types'
 
 const STORAGE_KEY = 'bbdc.wordlist.settings.v1'
 
+const SCALES: ReadingScale[] = ['sm', 'md', 'lg']
+
 export const DEFAULT_SETTINGS: Settings = {
   // 空字符串 = 与页面同源。集成到后端后由 FastAPI 直接托管，无需配置。
-  // 开发期由 vite.config.ts 的 proxy 把 /bbdc 与 /output 转发到后端，
+  // 开发期由 vite.config.ts 的 proxy 把 /bbdc、/llm 与 /output 转发到后端，
   // 所以这里依然可以留空；只有部署在不同域名时才需要填完整地址。
   apiBase: '',
   assetBase: '',
@@ -18,14 +20,21 @@ export const DEFAULT_SETTINGS: Settings = {
   delayMax: 900,
   // 乱序导出默认关闭：与旧行为保持一致，用户主动打开才打乱
   shuffle: false,
+  // 阅读正文默认中号
+  readingScale: 'md',
+}
+
+function normalizeScale(value: unknown): ReadingScale {
+  return SCALES.includes(value as ReadingScale) ? (value as ReadingScale) : DEFAULT_SETTINGS.readingScale
 }
 
 function read(): Settings {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {}
     const merged: Settings = { ...DEFAULT_SETTINGS, ...stored }
-    // 老版本的配置里没有 shuffle；也防住被手改成 "false" 字符串的情况
+    // 老版本的配置里没有 shuffle / readingScale；也防住被手改成 "false" 字符串的情况
     merged.shuffle = merged.shuffle === true || String(merged.shuffle) === 'true'
+    merged.readingScale = normalizeScale(merged.readingScale)
     return merged
   } catch {
     return { ...DEFAULT_SETTINGS }

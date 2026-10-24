@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 单个生词卡片：词、音标、词性+释义、变形、标签、加入时间与发音按钮。 */
+/** 词条行：单词、音标、释义、变形、标签、加入时间与发音按钮。 */
 import { computed } from 'vue'
 import { formatDate } from '@/lib/utils'
 import { audioOf, definitionsOf, exchangeOf, phoneticOf, tagsOf, wordTextOf } from '@/lib/word-utils'
@@ -15,34 +15,37 @@ const tags = computed(() => tagsOf(props.item))
 const forms = computed(() => exchangeOf(props.item))
 const phonetic = computed(() => phoneticOf(props.item))
 const audio = computed(() => audioOf(props.item))
+const added = computed(() => formatDate(props.item.updatetime))
 const no = computed(() => String(props.index).padStart(2, '0'))
+const formsText = computed(() => forms.value.map((form) => `${form.label} ${form.value}`).join(' · '))
 </script>
 
 <template>
-  <article class="word-card">
-    <span class="no">{{ no }}</span>
-    <div class="wc-head">
-      <h4 class="wc-word">{{ title || '—' }}</h4>
-      <span v-if="phonetic" class="wc-phonetic">{{ phonetic }}</span>
+  <article class="entry">
+    <span class="entry-no" aria-hidden="true">{{ no }}</span>
+
+    <div class="entry-head">
+      <h3 class="entry-word">{{ title || '—' }}</h3>
+      <p v-if="phonetic" class="entry-phonetic">{{ phonetic }}</p>
+      <p v-if="forms.length" class="entry-forms" :title="formsText">{{ formsText }}</p>
     </div>
-    <div class="wc-defs">
-      <p v-for="(def, index) in defs" :key="index">
-        <span v-if="def.pos" class="pos">{{ def.pos }}</span>{{ def.text }}
+
+    <div class="entry-defs">
+      <p v-for="(def, index) in defs" :key="index" class="entry-def">
+        <span v-if="def.pos" class="entry-pos">{{ def.pos }}</span>
+        <span>{{ def.text }}</span>
       </p>
-      <p v-if="!defs.length" style="color: #b0a69e">暂无释义</p>
+      <p v-if="!defs.length" class="entry-def is-empty">暂无释义</p>
+
+      <ul v-if="tags.length" class="entry-tags" aria-label="标签">
+        <li v-for="(tag, index) in tags" :key="index" class="tag" :class="{ 'is-hot': tag.hot }">
+          {{ tag.text }}
+        </li>
+      </ul>
     </div>
-    <p v-if="forms.length" class="wc-forms">
-      <span v-for="form in forms" :key="form.key + form.value" class="wc-form">
-        <i>{{ form.label }}</i>{{ form.value }}
-      </span>
-    </p>
-    <div v-if="tags.length" class="wc-tags">
-      <span v-for="(tag, index) in tags" :key="index" class="tag" :class="{ hot: tag.hot }">
-        {{ tag.text }}
-      </span>
-    </div>
-    <div class="wc-foot">
-      <span>{{ formatDate(item.updatetime) || '—' }} 加入</span>
+
+    <div class="entry-side">
+      <span class="entry-date">{{ added || '—' }}</span>
       <button
         v-if="audio"
         class="icon-btn"
@@ -61,7 +64,6 @@ const no = computed(() => String(props.index).padStart(2, '0'))
           />
         </svg>
       </button>
-      <span v-else></span>
     </div>
   </article>
 </template>

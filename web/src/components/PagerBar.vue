@@ -36,10 +36,27 @@ function commit(): void {
 
 <template>
   <nav class="pager" aria-label="分页">
-    <button class="btn quiet" type="button" :disabled="disabled || displayPage <= 1" @click="emit('prev')">
+    <button
+      class="pager-btn"
+      type="button"
+      :disabled="disabled || displayPage <= 1"
+      @click="emit('prev')"
+    >
+      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+        <path
+          d="M14.5 6.5 9 12l5.5 5.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
       上一页
     </button>
+
     <div class="pager-info">
+      <span>第</span>
       <label class="sr-only" for="pageInput">跳转到页</label>
       <input
         id="pageInput"
@@ -53,13 +70,24 @@ function commit(): void {
       />
       <span>/ <b>{{ totalPages }}</b> 页</span>
     </div>
+
     <button
-      class="btn quiet"
+      class="pager-btn"
       type="button"
       :disabled="disabled || displayPage >= totalPages"
       @click="emit('next')"
     >
       下一页
+      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+        <path
+          d="M9.5 6.5 15 12l-5.5 5.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
     </button>
   </nav>
 </template>

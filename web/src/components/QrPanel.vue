@@ -86,8 +86,9 @@ function startQr(): void {
   resetQrStage()
   logs.value = []
   void log('正在获取二维码…')
-  buttonDisabled.value = true
-  buttonLabel.value = '等待扫码…'
+  // 按钮保持可点：二维码过期或想换一张时，随时可以重新获取
+  buttonDisabled.value = false
+  buttonLabel.value = '重新获取二维码'
 
   try {
     source = new EventSource(api.qrcodeStreamUrl())
@@ -118,7 +119,10 @@ function stopQr(): void {
 
 function finishQr(success: boolean): void {
   stopQr()
-  if (success) buttonLabel.value = '已登录'
+  if (success) {
+    buttonLabel.value = '已登录'
+    buttonDisabled.value = true
+  }
 }
 
 async function copyQrPath(): Promise<void> {
@@ -157,6 +161,7 @@ onUnmounted(() => stopQr())
         <path d="M28 40h4M40 28h2v4" stroke-linecap="round" />
       </svg>
       <p>点击下方按钮获取登录二维码</p>
+      <span>二维码由「不背单词」官方服务生成</span>
     </div>
 
     <!-- 保留 id 以复用样式表里的 #qrImage 尺寸规则 -->
@@ -165,7 +170,7 @@ onUnmounted(() => stopQr())
     <div v-if="stage === 'fallback'" class="qr-fallback">
       <p>后端未开放静态目录，图片无法直接显示。可在服务器上打开该文件扫码：</p>
       <code>{{ qrPath || '—' }}</code>
-      <button class="btn tiny" type="button" @click="copyQrPath">复制路径</button>
+      <button class="btn ghost small" type="button" @click="copyQrPath">复制路径</button>
     </div>
   </div>
 
@@ -177,5 +182,5 @@ onUnmounted(() => stopQr())
     <li v-for="(line, index) in logs" :key="index" :class="line.type">{{ line.text }}</li>
   </ul>
 
-  <p class="micro">登录成功后自动跳转到生词本。若二维码过期，重新点击即可。</p>
+  <p class="note">登录成功后自动跳转到生词本。二维码过期或想换一张时，再点一次按钮即可重新获取。</p>
 </template>

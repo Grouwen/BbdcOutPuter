@@ -11,6 +11,7 @@ import { exportWordlistPdf } from '@/lib/exporter'
 import { saveSettings, settings } from '@/stores/settings'
 import { expire } from '@/stores/session'
 import { toast } from '@/stores/toast'
+import { vocab } from '@/stores/vocab'
 import type { ExportMode, FetchProgressPayload, SimpleWord } from '@/types'
 
 const MODE_CARDS: Array<{ value: ExportMode; label: string; desc: string }> = [
@@ -24,6 +25,13 @@ const shuffle = ref(settings.shuffle)
 const delayMin = ref(settings.delayMin)
 const delayMax = ref(settings.delayMax)
 const delayHint = computed(() => `${delayMin.value} – ${delayMax.value} ms`)
+const modeDesc = computed(() => MODE_CARDS.find((card) => card.value === mode.value)?.desc || '')
+const shuffleNote = computed(() =>
+  mode.value === 'both'
+    ? '单词与释义仍成对，只把先后顺序打乱，避免靠位置记忆。'
+    : '只把先后顺序打乱，避免靠位置记忆。',
+)
+const totalWords = computed(() => (vocab.checked && vocab.totalRecord > 0 ? vocab.totalRecord : 0))
 
 const busy = ref(false)
 const startedAt = ref(0)
@@ -201,57 +209,58 @@ function cancel(): void {
 </script>
 
 <template>
-  <aside class="export-panel" aria-labelledby="exportTitle">
-    <div class="panel-head">
-      <h3 id="exportTitle">导出默写 PDF</h3>
-    </div>
+  <aside id="export-panel" class="panel export-panel" aria-labelledby="exportTitle">
+    <header class="panel-head">
+      <h2 id="exportTitle">导出生词本</h2>
+      <p class="panel-sub">按 A4 双栏排版</p>
+    </header>
 
     <fieldset class="mode-group">
       <legend class="sr-only">导出模式</legend>
-      <label v-for="card in MODE_CARDS" :key="card.value" class="mode-card">
-        <input v-model="mode" type="radio" name="mode" :value="card.value" @change="onModeChange" />
-        <span class="mode-body">
-          <span class="mode-top"><b>{{ card.label }}</b><em>{{ card.value }}</em></span>
-          <span class="mode-desc">{{ card.desc }}</span>
-        </span>
-      </label>
+      <div class="seg" role="radiogroup" aria-label="导出模式">
+        <label v-for="card in MODE_CARDS" :key="card.value" class="seg-item">
+          <input v-model="mode" type="radio" name="mode" :value="card.value" @change="onModeChange" />
+          <span>{{ card.label }}</span>
+        </label>
+      </div>
+      <p class="mode-desc">{{ modeDesc }}</p>
     </fieldset>
 
-    <div class="shuffle-block">
+    <div class="switch-row">
       <label class="switch">
         <input v-model="shuffle" type="checkbox" @change="onShuffleChange" />
-        <span class="switch-track" aria-hidden="true"><i></i></span>
+        <span class="switch-track" aria-hidden="true"><i /></span>
         <span class="switch-text">
           <b>乱序导出</b>
           <em>{{ shuffle ? '已开启' : '按原顺序' }}</em>
         </span>
       </label>
-      <p class="micro">
-        生成前把单词随机打乱：单词和释义仍然成对，只是先后顺序不可预测，避免靠位置记忆。
-      </p>
+      <p class="note">{{ shuffleNote }}</p>
     </div>
 
-    <div class="delay-block">
-      <div class="delay-head">
-        <span>获取每页数据间隔时间</span>
-        <span class="hint">{{ delayHint }}</span>
-      </div>
-      <div class="delay-inputs">
+    <details class="interval">
+      <summary>
+        <span>请求间隔</span>
+        <span class="pill">{{ delayHint }}</span>
+      </summary>
+      <div class="interval-fields">
         <label>
-          <span>最小</span>
-          <input v-model.number="delayMin" type="number" min="0" step="50" inputmode="numeric" @change="readDelay" /> ms
+          <span class="sr-only">最小间隔（毫秒）</span>
+          <input v-model.number="delayMin" type="number" min="0" step="50" inputmode="numeric" @change="readDelay" />
+          <em>ms</em>
         </label>
         <span class="dash" aria-hidden="true">–</span>
         <label>
-          <span>最大</span>
-          <input v-model.number="delayMax" type="number" min="0" step="50" inputmode="numeric" @change="readDelay" /> ms
+          <span class="sr-only">最大间隔（毫秒）</span>
+          <input v-model.number="delayMax" type="number" min="0" step="50" inputmode="numeric" @change="readDelay" />
+          <em>ms</em>
         </label>
       </div>
-      <p class="micro">每次请求之间的间隔时间。为了避免触发服务端限流，请必须设置。</p>
-    </div>
+      <p class="note">两次请求之间的随机等待，避免触发服务端限流；遇到频繁失败时再调大。</p>
+    </details>
 
     <button class="btn primary block" type="button" :disabled="busy" @click="runExport">
-      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
         <path
           d="M12 4v10m0 0 4-4m-4 4-4-4"
           fill="none"
@@ -264,20 +273,36 @@ function cancel(): void {
       </svg>
       <span>{{ exportLabel }}</span>
     </button>
-    <button v-if="busy" class="btn danger block" type="button" @click="cancel">取消抓取</button>
+    <button v-if="busy" class="btn ghost block" type="button" @click="cancel">取消抓取</button>
 
     <div v-if="showProgress" class="progress">
-      <div class="progress-bar"><i :style="{ width: `${ratio}%` }"></i></div>
+      <div class="progress-bar"><i :style="{ width: `${ratio}%` }" /></div>
       <div class="progress-meta">
         <span>{{ progressText }}</span>
-        <span>{{ progressCount }}</span>
+        <span class="mono">{{ progressCount }}</span>
       </div>
     </div>
 
-    <div v-if="showStats" class="fetch-stats">
-      <div><span>已抓取</span><b>{{ statWords }}</b><small>词</small></div>
-      <div><span>页数</span><b>{{ statPages }}</b><small>页</small></div>
-      <div><span>耗时</span><b>{{ statTime }}</b><small>s</small></div>
+    <div v-if="showStats" class="stats">
+      <div><span>已抓取</span><b>{{ statWords }}</b><em>词</em></div>
+      <div><span>页数</span><b>{{ statPages }}</b><em>页</em></div>
+      <div><span>耗时</span><b>{{ statTime }}</b><em>s</em></div>
     </div>
+
+    <footer class="panel-foot">
+      <router-link class="panel-link" :to="{ name: 'reading' }">
+        前往阅读练习
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path
+            d="M5 12h13m0 0-5-5m5 5-5 5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </router-link>
+    </footer>
   </aside>
 </template>

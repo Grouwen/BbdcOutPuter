@@ -6,6 +6,9 @@ import urllib.parse
 from typing import AsyncIterator
 import aiofiles
 from datetime import datetime
+
+from fastapi.sse import ServerSentEvent
+
 from app.common.constants import QRCODE_IMG_PATH, AUTH_CODE_PATH
 from app.domain.ultimate_result import UltimateResult
 from app.domain.word import Word
@@ -198,7 +201,7 @@ class BbdcService:
 
     async def auto_login(self)->Result:
         # 读取cookie
-        cookies = self.cookie_store.load_cookie()
+        cookies = await self.cookie_store.load_cookie()
         if not cookies:
             return Result.ok({"is_login":False})
 
@@ -251,9 +254,6 @@ class BbdcService:
         word_resp_list = rep.get("data_body", {}).get("wordList", [])
         for word_resp in word_resp_list:
             # 获取翻译信息
-            # ultimate_oper_result = await asyncio.to_thread(
-            #     self.ultimate_oper.query, word_resp["word"]
-            # )
             ultimate_oper_result = self.ultimate_oper.query(word_resp["word"])
             ultimate_result = UltimateResult.from_dict(ultimate_oper_result or {})
             # 存储为date对象
@@ -271,3 +271,37 @@ class BbdcService:
             "wordList": word_with_ultimate,
             "pageInfo": rep.get("data_body", {}).get("pageInfo")
         })
+
+    async def get_all_newword(self,min_sleep_time:int=1,
+                              max_sleep_time:int=3,
+                              retry_times:int=2)->AsyncIterator[ServerSentEvent]:
+
+        current_page = 0
+        error_times = 0
+
+        while True:
+
+            page_result = await self.get_newword_by_page(current_page-1)
+            # 失败重试
+            if page_result.code != 200:
+                error_times += 1
+                if error_times >= retry_times:
+                    yield ServerSentEvent(event="error",data=page_result)
+                    return
+                page_result.message = f"获取页面{current_page}失败，将重试一次。原始返回：{page_result.message}"
+                yield ServerSentEvent(event="warn", data=page_result)
+                await asyncio.sleep(random.uniform(min_sleep_time,
+                                                   max_sleep_time))
+                continue
+            else:
+                error_times = 0
+                total_page = int(page_result.data.get("pageInfo", {}).get("totalPage", 0))
+                current_page += 1
+                yield ServerSentEvent(event="progress", data=page_result)
+
+                if current_page >= total_page:
+                    yield ServerSentEvent(event="done", data={})
+                    return
+
+                await asyncio.sleep(random.uniform(min_sleep_time,
+                                                   max_sleep_time))

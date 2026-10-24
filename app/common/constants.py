@@ -27,3 +27,9 @@ AUTH_CODE_PATH: Final[Path] = OUTPUT_PATH / "authcode" / "authcode.jpg"
 
 # ultimate.db保存位置
 ULTIMATE_DB_PATH: Final[Path] = PROJECT_ROOT / "translate" / "ultimate.db"
+
+# Env文件存放位置
+ENV_PATH: Final[Path] = PROJECT_ROOT / ".env"
+
+# prompt存放位置
+PROMPT_PATH: Final[Path] = PROJECT_ROOT / "prompts"

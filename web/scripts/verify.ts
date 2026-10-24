@@ -1,11 +1,12 @@
 /**
  * 本地自检脚本（不参与构建，仅 npm run verify 时用）。
- * 覆盖两件事：后端文本的转义清洗、乱序导出的顺序与配对。
+ * 覆盖三件事：后端文本的转义清洗、乱序导出的顺序与配对、阅读接口返回值的容错解析。
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
+import { parseArticle, parseFramePayload, readPageMark, titleFromSnippet } from '@/lib/reading'
 import { PdfDoc, PdfPage } from '@/lib/pdf/pdfdoc.js'
 import { TrueTypeFont } from '@/lib/pdf/ttf.js'
 import { buildWordlistPdf } from '@/lib/pdf/wordlist.js'
@@ -175,6 +176,96 @@ check('乱序：页数不变', shuffledText.length, 3)
 
 PdfDoc.prototype.addPage = originalAddPage
 PdfPage.prototype.text = originalText
+
+// ---------------------------------------------------------------- 阅读解析
+
+const messyReading = {
+  title: '  <b>Why</b> We Switch ',
+  content: '第一段。\r\n\r\n第二段。',
+  core_point: '考点&amp;提示',
+  questions: [
+    {
+      question_number: '1',
+      question_content: 'Q1?',
+      options: ['A 选项内容', 'B 选项内容'],
+      analysis: '<i>解析一</i>',
+      correct_option: { option_number: 'b.', option_content: 'B 选项内容' },
+    },
+    {
+      question_content: '<b>Q2</b>?',
+      options: [
+        { option_number: '1', option_content: 'one' },
+        { option_number: '2', option_content: 'two' },
+        { option_number: '3', option_content: 'three' },
+      ],
+      correct_option: 'two',
+    },
+  ],
+}
+
+const article = parseArticle(messyReading)
+if (!article) throw new Error('阅读解析返回 null')
+
+check('文章标题去标签', article.title, 'Why We Switch')
+check('正文按空行分段', article.paragraphs, ['第一段。', '第二段。'])
+check('核心考点解实体', article.corePoint, '考点&提示')
+check('题目数量', article.questions.length, 2)
+check(
+  '选项字母归一：1/2/3 → A/B/C',
+  article.questions[1].options.map((option) => option.letter),
+  ['A', 'B', 'C'],
+)
+check('字符串选项按位置补字母', article.questions[0].options.map((option) => option.letter), ['A', 'B'])
+check('答案按字母归一（b. → B）', article.questions[0].answer, 'B')
+check('答案按内容匹配（two → B）', article.questions[1].answer, 'B')
+check('缺题号时按位置补', article.questions[1].number, '2')
+check('解析去标签', article.questions[0].analysis, '解析一')
+check('解析不出内容时返回 null', parseArticle({ foo: 1 }), null)
+check('result 是 JSON 字符串也能解析', parseArticle(JSON.stringify(messyReading))?.title, 'Why We Switch')
+
+check(
+  'progress 帧带统一信封',
+  parseFramePayload({
+    event: 'progress',
+    data: '{"code":200,"message":"ok","data":{"message":"获取第0/1页单词成功。"}}',
+  }),
+  { code: 200, message: 'ok', data: { message: '获取第0/1页单词成功。' } },
+)
+check(
+  'token 帧是裸对象',
+  parseFramePayload({ event: 'token', data: '{"token":"{\\"title\\""}' }),
+  { code: 200, message: '', data: { token: '{"title"' } },
+)
+check(
+  '错误帧取出 message',
+  parseFramePayload({ event: 'error', data: '{"code":2001,"message":"api_key或model_name为空","data":{}}' })
+    .message,
+  'api_key或model_name为空',
+)
+check('坏 JSON 不抛错', parseFramePayload({ event: 'x', data: 'not json' }).code, 200)
+check('从 token 片段里猜标题', titleFromSnippet('{"title":"Why We Switch","content":"…'), 'Why We Switch')
+check(
+  'progress 帧是整页结果，页码在 pageInfo 里',
+  parseFramePayload({
+    event: 'progress',
+    data: '{"code":200,"message":"ok","data":{"wordList":[{"word":"abandon"}],"pageInfo":{"currentPage":19,"totalPage":24}}}',
+  }).data.pageInfo,
+  { currentPage: 19, totalPage: 24 },
+)
+check(
+  'warn 帧带失败原因（不是终态）',
+  parseFramePayload({
+    event: 'warn',
+    data: '{"code":2001,"message":"获取页面20失败，将重试一次。","data":{}}',
+  }),
+  { code: 2001, message: '获取页面20失败，将重试一次。', data: {} },
+)
+
+// 真实后端（正在运行的那版）会把页码格式化成小数：获取第1.0/21.0页单词成功。
+check('页码文案：整数', readPageMark('获取第3/21页单词成功。'), { current: 3, total: 21 })
+check('页码文案：小数', readPageMark('获取第1.0/21.0页单词成功。'), { current: 1, total: 21 })
+check('页码文案：0 基', readPageMark('获取第0/2页单词成功。'), { current: 0, total: 2 })
+check('页码文案：取不到返回 null', readPageMark('正在读取生词本…'), null)
 
 console.log(failures === 0 ? '\n全部通过' : `\n${failures} 项失败`)
 if (failures > 0) process.exit(1)

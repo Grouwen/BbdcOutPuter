@@ -4,6 +4,7 @@
 
 ![](assets/img_1.png)
 
+> 更多项目截图，可以在[assets](/assets)中找到
 ---
 
 
@@ -18,7 +19,8 @@
   - [1、前置条件：](#1前置条件)
   - [2、登录](#2登录)
   - [3、浏览生词本](#3浏览生词本)
-  - [4、导出 PDF](#4-导出-pdf)
+  - [4、导出 PDF](#4导出-pdf)
+  - [5、生成阅读](#5生成阅读)
 - [四、前端](#四前端)
   - [启动](#启动)
 - [五、技术结构（简）](#五技术结构简)
@@ -32,12 +34,13 @@
 
 1. 获取「不背单词」的生词本数据
 2. 导出生词本中的数据制作成pdf
+3. 根据生词本中的数据生成阅读题
 
 **亮点：**
 1. 导出一站式：登录 + 导出本项目一键搞定。
 2. 还原「不背单词」导出模板样式与模式（中文+英文，仅中文，仅英文）
 3. 离线翻译，基于[ECDICT](https://github.com/skywind3000/ECDICT-ultimate)库进行翻译
-4. 集成vue前端，用户可以在web上进行操作，非常方便
+4. 集成vue前端，用户可以在web上进行可视化操作
 5. 持续维护中，后续会加入更多功能！
 
 > 声明：本项目与「不背单词」官方无关，仅通过其网页端接口读取你本人账号下的生词本，不提供任何破解或代登录服务。
@@ -63,7 +66,7 @@ uv run python -m app.main        # 用 uv 运行时前面加 uv run
 # 方式二：pip
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install aiofiles ddddocr fastapi httpx pydantic pyyaml reportlab requests sse-starlette uvicorn
+pip install ...
 ```
 
 > 项目没有配置构建后端（`build-system`），所以 `pip install -e .` 会因为自动发现包失败而报错。直接按上面的依赖列表安装即可，源码不需要装进环境。
@@ -161,6 +164,11 @@ npm run dev
 
 3种导出模式：**英文+释义**，**仅英文**，**仅中文**
 
+### 5、生成阅读
+
+此功能利用ai生成阅读，如果需要使用此功能，你可以参考[.env.example](.env.example)中配置api_key与model_name，配置完之后请命名为`.env`
+
+> 注意：model_name必须包括提供商名，格式：模型提供商/模型名。（例如：deepseek/deepseek-flash）
 
 ---
 

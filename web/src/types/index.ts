@@ -85,6 +85,9 @@ export interface AuthCodeResult {
 /** 导出模式：英文+释义 / 仅英文 / 仅中文 */
 export type ExportMode = 'both' | 'en' | 'zh'
 
+/** 阅读正文的三档字号 */
+export type ReadingScale = 'sm' | 'md' | 'lg'
+
 export interface Settings {
   /** 空字符串 = 与页面同源 */
   apiBase: string
@@ -95,6 +98,8 @@ export interface Settings {
   delayMax: number
   /** 乱序导出：生成 PDF 前把单词随机打乱 */
   shuffle: boolean
+  /** 阅读练习的正文字号，刷新后保持 */
+  readingScale: ReadingScale
 }
 
 /** 抓取进度回调载荷 */
@@ -123,3 +128,39 @@ export interface SimpleWord {
 
 /** 列表/PDF 通用的错误态分类 */
 export type ApiErrorKind = 'api' | 'timeout' | 'abort' | 'network' | 'parse'
+
+/* ------------------------------- 阅读练习 ------------------------------- */
+
+/** 大模型返回的单个选项，解析后只剩字母与纯文本 */
+export interface ReadingOption {
+  /** A / B / C / D */
+  letter: string
+  text: string
+}
+
+/** 整理后的题目：选项、答案、解析都已解析成纯文本 */
+export interface ReadingQuestion {
+  number: string
+  stem: string
+  options: ReadingOption[]
+  /** 正确选项的字母；后端没给或给了不存在的选项时为空串 */
+  answer: string
+  analysis: string
+}
+
+/** 整理后的阅读文章 */
+export interface ReadingArticle {
+  title: string
+  /** 段落数组（已按空行切开） */
+  paragraphs: string[]
+  questions: ReadingQuestion[]
+  corePoint: string
+  /** 正文词数，用于展示篇幅 */
+  wordCount: number
+}
+
+/** SSE 单帧 */
+export interface SseFrame {
+  event: string
+  data: string
+}

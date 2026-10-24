@@ -197,7 +197,7 @@ onUnmounted(() => clearCountdown())
           <span v-if="showCodeHint">{{ codeHintText }}</span>
         </button>
       </div>
-      <p v-if="showCodePathHint" class="micro">{{ codePathHint }}</p>
+      <p v-if="showCodePathHint" class="note">{{ codePathHint }}</p>
     </div>
 
     <div class="field">
@@ -228,6 +228,6 @@ onUnmounted(() => clearCountdown())
     <button class="btn primary block" type="submit" :disabled="submitting">
       {{ submitting ? '登录中…' : '登录' }}
     </button>
-    <p class="micro">验证码由不背单词服务器下发，请留意短信。</p>
+    <p class="note">验证码由不背单词服务器下发，请留意短信。</p>
   </form>
 </template>

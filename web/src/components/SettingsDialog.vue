@@ -53,13 +53,15 @@ function onReset(): void {
 <template>
   <dialog ref="dialog" class="dialog" @close="onClose">
     <form method="dialog" class="dialog-body">
-      <h3>连接设置</h3>
-      <p class="micro">前端只通过下列地址访问后端接口，配置保存在本机浏览器。</p>
+      <header class="dialog-head">
+        <h2>连接设置</h2>
+        <p class="note">前端只通过下列地址访问后端接口，配置保存在本机浏览器。</p>
+      </header>
 
       <label class="field">
         <span>接口地址</span>
         <input v-model="apiBase" type="url" placeholder="留空 = 与页面同源（集成部署时无需填写）" />
-        <p class="micro">
+        <p class="note">
           集成到后端后页面与接口同源，这里留空即可。仅当前端单独部署在别的域名时，才需要填完整地址，例如
           <code>http://127.0.0.1:20056</code>。
         </p>
@@ -68,15 +70,15 @@ function onReset(): void {
       <label class="field">
         <span>静态资源地址（可选）</span>
         <input v-model="assetBase" type="url" placeholder="留空 = 与接口地址相同" />
-        <p class="micro">
+        <p class="note">
           二维码 / 图形验证码由后端写入 <code>output/</code> 目录。集成包已把该目录挂载到
           <code>/output</code>，图片可直接显示；若改用 nginx 托管，把对应地址填在这里。
         </p>
       </label>
 
       <div class="dialog-actions">
-        <button class="btn quiet" type="button" @click="onReset">恢复默认</button>
-        <span class="spacer"></span>
+        <button class="btn quiet small" type="button" @click="onReset">恢复默认</button>
+        <span class="spacer" />
         <button class="btn ghost" value="cancel" type="submit">取消</button>
         <button class="btn primary" value="save" type="button" @click="onSave">保存</button>
       </div>

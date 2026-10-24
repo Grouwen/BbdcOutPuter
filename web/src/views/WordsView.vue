@@ -7,14 +7,15 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '@/api'
 import ExportPanel from '@/components/ExportPanel.vue'
 import PagerBar from '@/components/PagerBar.vue'
-import WordCard from '@/components/WordCard.vue'
+import WordEntry from '@/components/WordEntry.vue'
 import { prefetchTypefaces } from '@/lib/exporter'
 import { searchTextOf } from '@/lib/word-utils'
 import { expire } from '@/stores/session'
 import { toast } from '@/stores/toast'
+import { setVocabMeta } from '@/stores/vocab'
 import type { PageInfo, Word } from '@/types'
 
-const SKELETON_COUNT = 8
+const SKELETON_COUNT = 6
 
 const words = ref<Word[]>([])
 const pageInfo = ref<PageInfo | null>(null)
@@ -69,6 +70,7 @@ function renderError(error: unknown): void {
 function render(): void {
   const total = Number(pageInfo.value?.totalRecord) || 0
   meta.value = `共 ${total} 词 · 第 ${displayPage.value} / ${totalPages.value} 页 · 每页 ${pageSize.value} 词`
+  setVocabMeta({ totalRecord: total, pageSize: pageSize.value })
   viewState.value = 'list'
 }
 
@@ -129,6 +131,11 @@ function refresh(): void {
   void load(page.value)
 }
 
+/** 窄屏把导出面板排在列表之后，用这个入口把用户直接带到面板 */
+function jumpToExport(): void {
+  document.getElementById('export-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 function play(url: string): void {
   if (!url) return
   audio?.pause?.()
@@ -144,13 +151,16 @@ onMounted(async () => {
 
 <template>
   <section class="view words-view">
-    <div class="words-toolbar">
-      <div class="toolbar-title">
-        <h2>生词本</h2>
-        <p>{{ meta }}</p>
+    <header class="page-head">
+      <div class="page-head-main">
+        <h1 class="page-title"><span class="page-index">01</span>生词本</h1>
+        <p class="page-sub">{{ meta }}</p>
       </div>
-      <div class="toolbar-tools">
-        <div class="search">
+      <div class="page-tools">
+        <button class="btn primary small only-narrow export-jump" type="button" @click="jumpToExport">
+          导出默写纸
+        </button>
+        <label class="search">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7" />
             <path d="m16 16 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
@@ -161,9 +171,10 @@ onMounted(async () => {
             placeholder="搜索本页单词或释义"
             aria-label="搜索本页单词或释义"
           />
-        </div>
-        <button class="btn ghost" type="button" @click="refresh">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        </label>
+        <span v-if="filter" class="search-count">{{ visible.length }} / {{ words.length }}</span>
+        <button class="btn ghost small" type="button" @click="refresh">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
             <path
               d="M20 12a8 8 0 1 1-2.3-5.6"
               fill="none"
@@ -183,37 +194,70 @@ onMounted(async () => {
           刷新
         </button>
       </div>
-    </div>
+    </header>
 
     <div class="words-layout">
       <div class="words-main">
-        <div class="word-grid" aria-live="polite">
+        <div class="list-head" aria-hidden="true">
+          <span>#</span>
+          <span>单词</span>
+          <span>释义 / 标签</span>
+          <span>加入</span>
+        </div>
+
+        <div class="word-list" aria-live="polite">
           <template v-if="viewState === 'skeleton'">
-            <div v-for="n in SKELETON_COUNT" :key="n" class="skeleton"></div>
+            <div v-for="n in SKELETON_COUNT" :key="n" class="entry-skeleton">
+              <i /><span /><b />
+            </div>
           </template>
 
           <div v-else-if="viewState === 'error'" class="state-block">
-            <span class="emoji">{{ errorNeedLogin ? '🔒' : '⚠️' }}</span>
-            <h4>{{ errorNeedLogin ? '需要先登录' : '读取失败' }}</h4>
+            <span class="state-mark">
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+                <template v-if="errorNeedLogin">
+                  <rect x="5" y="10.5" width="14" height="9.5" rx="2" />
+                  <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+                </template>
+                <template v-else>
+                  <path d="M12 4.5 21 19.5H3L12 4.5Z" />
+                  <path d="M12 10v4" stroke-linecap="round" />
+                  <circle cx="12" cy="16.6" r="0.9" fill="currentColor" stroke="none" />
+                </template>
+              </svg>
+            </span>
+            <h2>{{ errorNeedLogin ? '需要先登录' : '读取失败' }}</h2>
             <p>{{ errorMessage }}</p>
-            <p>{{ errorNeedLogin ? '完成登录后会自动载入生词本。' : '请确认后端已启动，且接口地址配置正确。' }}</p>
+            <p class="state-note">
+              {{ errorNeedLogin ? '完成登录后会自动载入生词本。' : '请确认后端已启动，且接口地址配置正确。' }}
+            </p>
           </div>
 
           <template v-else>
             <div v-if="!words.length" class="state-block">
-              <span class="emoji">🫧</span>
-              <h4>这一页没有生词</h4>
+              <span class="state-mark">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+                  <rect x="4.5" y="4" width="15" height="16" rx="2" />
+                  <path d="M8 9h8M8 13h5" stroke-linecap="round" />
+                </svg>
+              </span>
+              <h2>这一页没有生词</h2>
               <p>生词本可能是空的，或者这一页刚好没有内容。</p>
             </div>
 
             <div v-else-if="!visible.length" class="state-block">
-              <span class="emoji">🔍</span>
-              <h4>本页没有匹配「{{ filter }}」的词</h4>
-              <p>搜索只作用于当前页，翻页后再试试。</p>
+              <span class="state-mark">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                  <circle cx="11" cy="11" r="6.5" />
+                  <path d="m16 16 4 4" />
+                </svg>
+              </span>
+              <h2>本页没有匹配「{{ filter }}」的词</h2>
+              <p class="state-note">搜索只作用于当前页，翻页后再试试。</p>
             </div>
 
             <template v-else>
-              <WordCard
+              <WordEntry
                 v-for="entry in visible"
                 :key="entry.index"
                 :item="entry.item"
