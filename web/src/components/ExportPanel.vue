@@ -11,7 +11,6 @@ import { exportWordlistPdf } from '@/lib/exporter'
 import { saveSettings, settings } from '@/stores/settings'
 import { expire } from '@/stores/session'
 import { toast } from '@/stores/toast'
-import { vocab } from '@/stores/vocab'
 import type { ExportMode, FetchProgressPayload, SimpleWord } from '@/types'
 
 const MODE_CARDS: Array<{ value: ExportMode; label: string; desc: string }> = [
@@ -31,7 +30,6 @@ const shuffleNote = computed(() =>
     ? '单词与释义仍成对，只把先后顺序打乱，避免靠位置记忆。'
     : '只把先后顺序打乱，避免靠位置记忆。',
 )
-const totalWords = computed(() => (vocab.checked && vocab.totalRecord > 0 ? vocab.totalRecord : 0))
 
 const busy = ref(false)
 const startedAt = ref(0)

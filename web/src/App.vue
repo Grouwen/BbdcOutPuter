@@ -11,7 +11,6 @@ import { wordFetcher } from '@/lib/fetcher'
 import { resetReading } from '@/stores/reading'
 import { refresh, session } from '@/stores/session'
 import { toast } from '@/stores/toast'
-import { resetVocabMeta, vocab } from '@/stores/vocab'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,7 +20,6 @@ const settingsOpen = ref(false)
 const viewKey = ref(0)
 
 const onLoginPage = computed(() => route.name === 'login')
-const totalWords = computed(() => (vocab.checked && vocab.totalRecord > 0 ? vocab.totalRecord : 0))
 
 watch(
   () => session.isLogin,
@@ -38,7 +36,6 @@ function openSettings(): void {
 async function onSettingsSaved(): Promise<void> {
   toast('设置已保存，正在重新连接…', 'info')
   wordFetcher.reset()
-  resetVocabMeta()
   resetReading()
 
   const ok = await refresh()
